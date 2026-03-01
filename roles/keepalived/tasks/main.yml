@@ -1,0 +1,21 @@
+---
+- name: Install keepalived
+  apt:
+    name: keepalived
+    state: present
+    update_cache: yes
+
+- name: Deploy keepalived configuration
+  template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart keepalived
+
+- name: Ensure keepalived is enabled and running
+  service:
+    name: keepalived
+    state: started
+    enabled: yes

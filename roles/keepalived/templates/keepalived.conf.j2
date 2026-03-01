@@ -1,0 +1,48 @@
+! {{ ansible_managed }}
+!
+! keepalived configuration for DNS VIP failover.
+!
+! How this works:
+!   - Two servers (dns2 and dns3) compete for a virtual IP ({{ dns_vip }}).
+!   - The server with the highest effective priority holds the VIP.
+!   - A health check script monitors BIND9 every 5 seconds.
+!   - If BIND9 stops responding, the priority drops by 20 and the VIP
+!     migrates to the other server.
+
+! Health check: uses dig to query the local BIND9 for the SOA record.
+! If this fails 3 times in a row, the server is considered unhealthy.
+vrrp_script check_named {
+    script "/usr/bin/dig @127.0.0.1 rushdel.me SOA +time=2 +tries=1 > /dev/null 2>&1"
+    interval 5
+    weight -20
+    fall 3
+    rise 2
+}
+
+vrrp_instance DNS_VIP {
+    ! dns3 (priority 100) is preferred; dns2 (priority 90) is backup
+{% if inventory_hostname == 'dns3' %}
+    state MASTER
+    priority 100
+{% else %}
+    state BACKUP
+    priority 90
+{% endif %}
+
+    interface {{ ansible_facts['default_ipv4']['interface'] }}
+    virtual_router_id 10
+    advert_int 1
+
+    authentication {
+        auth_type PASS
+        auth_pass {{ keepalived_vrrp_password }}
+    }
+
+    virtual_ipaddress {
+        {{ dns_vip }}/24
+    }
+
+    track_script {
+        check_named
+    }
+}

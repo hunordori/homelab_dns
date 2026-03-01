@@ -1,0 +1,15 @@
+---
+# dns-secondary.yml - Deploy/update only the secondary DNS servers.
+#
+# Usage:
+#   ansible-playbook playbooks/dns-secondary.yml
+#
+# Use this when you need to reconfigure the secondaries (e.g., after
+# changing BIND9 options or adding a new secondary server).
+# Zone data is pulled from the master via zone transfer, not deployed directly.
+
+- name: Deploy BIND9 on secondaries
+  hosts: dns_secondary
+  become: yes
+  roles:
+    - bind9

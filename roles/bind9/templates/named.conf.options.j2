@@ -1,0 +1,62 @@
+// {{ ansible_managed }}
+//
+// BIND9 global options - managed by Ansible
+// Do not edit manually.
+
+acl "trusted" {
+{% for net in dns_allowed_networks %}
+    {{ net }};
+{% endfor %}
+};
+
+options {
+    directory "/var/cache/bind";
+
+    // Only allow queries from trusted networks
+    allow-query { trusted; };
+
+    // Enable recursion for local clients
+    recursion yes;
+    allow-recursion { trusted; };
+
+    // Forward external queries to upstream DNS
+    forwarders {
+{% for fwd in dns_forwarders %}
+        {{ fwd }};
+{% endfor %}
+    };
+    forward only;
+
+    // DNSSEC validation
+    dnssec-validation auto;
+
+    // Listen on all interfaces
+    listen-on { any; };
+    listen-on-v6 { none; };
+
+    // Disable zone transfer by default (overridden per-zone)
+    allow-transfer { none; };
+
+    // Hide version string
+    version "not disclosed";
+};
+
+// Logging configuration
+logging {
+    channel default_log {
+        file "/var/log/named/default.log" versions 3 size 5m;
+        severity info;
+        print-time yes;
+        print-severity yes;
+        print-category yes;
+    };
+
+    channel query_log {
+        file "/var/log/named/query.log" versions 3 size 10m;
+        severity info;
+        print-time yes;
+    };
+
+    category default { default_log; };
+    category queries { query_log; };
+};

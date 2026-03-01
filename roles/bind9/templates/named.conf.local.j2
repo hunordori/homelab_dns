@@ -1,0 +1,102 @@
+// {{ ansible_managed }}
+//
+// Zone declarations for rushdel.me DNS infrastructure.
+// Role: {{ bind9_role }}
+
+// Include the TSIG key for zone transfer authentication
+include "/etc/bind/tsig-key.conf";
+
+{% if bind9_role == "master" %}
+// =============================================================================
+// MASTER configuration
+// Zones are served from local zone files. Secondaries pull via AXFR/IXFR.
+// =============================================================================
+
+zone "rushdel.me" {
+    type master;
+    file "{{ bind9_zone_dir }}/rushdel.me.zone";
+    allow-transfer { key {{ tsig_key_name }}; };
+    also-notify {
+{% for ns in dns_nameservers %}
+{% if ns.ip != dns_master_ip %}
+        {{ ns.ip }};
+{% endif %}
+{% endfor %}
+    };
+};
+
+zone "home.rushdel.me" {
+    type master;
+    file "{{ bind9_zone_dir }}/home.rushdel.me.zone";
+    allow-transfer { key {{ tsig_key_name }}; };
+    also-notify {
+{% for ns in dns_nameservers %}
+{% if ns.ip != dns_master_ip %}
+        {{ ns.ip }};
+{% endif %}
+{% endfor %}
+    };
+};
+
+zone "gitlab.rushdel.me" {
+    type master;
+    file "{{ bind9_zone_dir }}/gitlab.rushdel.me.zone";
+    allow-transfer { key {{ tsig_key_name }}; };
+    also-notify {
+{% for ns in dns_nameservers %}
+{% if ns.ip != dns_master_ip %}
+        {{ ns.ip }};
+{% endif %}
+{% endfor %}
+    };
+};
+
+zone "22.168.192.in-addr.arpa" {
+    type master;
+    file "{{ bind9_zone_dir }}/22.168.192.in-addr.arpa.zone";
+    allow-transfer { key {{ tsig_key_name }}; };
+    also-notify {
+{% for ns in dns_nameservers %}
+{% if ns.ip != dns_master_ip %}
+        {{ ns.ip }};
+{% endif %}
+{% endfor %}
+    };
+};
+
+{% elif bind9_role == "secondary" %}
+// =============================================================================
+// SECONDARY configuration
+// Zones are pulled from the master via authenticated zone transfers (TSIG).
+// =============================================================================
+
+// Server statement to associate the TSIG key with the master
+server {{ dns_master_ip }} {
+    keys { {{ tsig_key_name }}; };
+};
+
+zone "rushdel.me" {
+    type slave;
+    file "{{ bind9_zone_dir }}/rushdel.me.zone";
+    masters { {{ dns_master_ip }}; };
+};
+
+zone "home.rushdel.me" {
+    type slave;
+    file "{{ bind9_zone_dir }}/home.rushdel.me.zone";
+    masters { {{ dns_master_ip }}; };
+};
+
+zone "gitlab.rushdel.me" {
+    type slave;
+    file "{{ bind9_zone_dir }}/gitlab.rushdel.me.zone";
+    masters { {{ dns_master_ip }}; };
+};
+
+zone "22.168.192.in-addr.arpa" {
+    type slave;
+    file "{{ bind9_zone_dir }}/22.168.192.in-addr.arpa.zone";
+    masters { {{ dns_master_ip }}; };
+};
+
+{% endif %}

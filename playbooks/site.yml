@@ -1,0 +1,24 @@
+---
+# site.yml - Main playbook that deploys the entire DNS infrastructure.
+#
+# Usage:
+#   ansible-playbook playbooks/site.yml
+#
+# What it does:
+#   1. Deploys BIND9 (master config on dns1, secondary config on dns2/dns3)
+#   2. Deploys keepalived on dns2 and dns3 for VIP failover
+#
+# After running, verify with:
+#   dig @192.168.22.10 docker1.rushdel.me
+
+- name: Deploy BIND9 on all DNS servers
+  hosts: dns_servers
+  become: yes
+  roles:
+    - bind9
+
+- name: Deploy keepalived on secondary DNS servers
+  hosts: keepalived_servers
+  become: yes
+  roles:
+    - keepalived

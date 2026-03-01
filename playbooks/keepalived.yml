@@ -1,0 +1,14 @@
+---
+# keepalived.yml - Deploy/update keepalived on the VIP servers.
+#
+# Usage:
+#   ansible-playbook playbooks/keepalived.yml
+#
+# Use this when you need to reconfigure keepalived (e.g., changing
+# priorities, VIP address, or health check parameters).
+
+- name: Deploy keepalived on VIP servers
+  hosts: keepalived_servers
+  become: yes
+  roles:
+    - keepalived

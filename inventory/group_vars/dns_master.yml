@@ -1,0 +1,6 @@
+---
+# Master-specific BIND9 configuration
+bind9_role: master
+
+# Zone file directory on the server
+bind9_zone_dir: /etc/bind/zones

@@ -1,0 +1,105 @@
+---
+- name: Install BIND9 and utilities
+  apt:
+    name:
+      - bind9
+      - bind9utils
+      - bind9-dnsutils
+    state: present
+    update_cache: yes
+
+- name: Create BIND9 log directory
+  file:
+    path: /var/log/named
+    state: directory
+    owner: bind
+    group: bind
+    mode: "0755"
+
+- name: Create zone directory (master only)
+  file:
+    path: "{{ bind9_zone_dir }}"
+    state: directory
+    owner: bind
+    group: bind
+    mode: "0755"
+  when: bind9_role == "master"
+
+- name: Deploy BIND9 global options
+  template:
+    src: named.conf.options.j2
+    dest: /etc/bind/named.conf.options
+    owner: root
+    group: bind
+    mode: "0644"
+  notify: reload bind9
+
+- name: Deploy TSIG key file
+  template:
+    src: tsig-key.j2
+    dest: /etc/bind/tsig-key.conf
+    owner: root
+    group: bind
+    mode: "0640"
+  notify: reload bind9
+
+- name: Deploy zone declarations
+  template:
+    src: named.conf.local.j2
+    dest: /etc/bind/named.conf.local
+    owner: root
+    group: bind
+    mode: "0644"
+  notify: reload bind9
+
+# --- Master-only tasks: deploy zone files ---
+
+- name: Deploy rushdel.me zone file
+  template:
+    src: rushdel.me.zone.j2
+    dest: "{{ bind9_zone_dir }}/rushdel.me.zone"
+    owner: bind
+    group: bind
+    mode: "0644"
+    validate: "named-checkzone rushdel.me %s"
+  when: bind9_role == "master"
+  notify: reload bind9
+
+- name: Deploy home.rushdel.me zone file
+  template:
+    src: home.rushdel.me.zone.j2
+    dest: "{{ bind9_zone_dir }}/home.rushdel.me.zone"
+    owner: bind
+    group: bind
+    mode: "0644"
+    validate: "named-checkzone home.rushdel.me %s"
+  when: bind9_role == "master"
+  notify: reload bind9
+
+- name: Deploy gitlab.rushdel.me zone file
+  template:
+    src: gitlab.rushdel.me.zone.j2
+    dest: "{{ bind9_zone_dir }}/gitlab.rushdel.me.zone"
+    owner: bind
+    group: bind
+    mode: "0644"
+    validate: "named-checkzone gitlab.rushdel.me %s"
+  when: bind9_role == "master"
+  notify: reload bind9
+
+- name: Deploy reverse DNS zone file
+  template:
+    src: 22.168.192.in-addr.arpa.zone.j2
+    dest: "{{ bind9_zone_dir }}/22.168.192.in-addr.arpa.zone"
+    owner: bind
+    group: bind
+    mode: "0644"
+    validate: "named-checkzone 22.168.192.in-addr.arpa %s"
+  when: bind9_role == "master"
+  notify: reload bind9
+
+- name: Ensure BIND9 is enabled and running
+  service:
+    name: named
+    state: started
+    enabled: yes

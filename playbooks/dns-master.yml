@@ -1,0 +1,16 @@
+---
+# dns-master.yml - Deploy/update only the master DNS server.
+#
+# Usage:
+#   ansible-playbook playbooks/dns-master.yml
+#
+# Use this when you've added or changed DNS records in group_vars/all.yml.
+# The master's zone files will be updated and BIND9 reloaded.
+# Secondaries will automatically pull the changes via zone transfer
+# (triggered by the serial number increment).
+
+- name: Deploy BIND9 on master
+  hosts: dns_master
+  become: yes
+  roles:
+    - bind9

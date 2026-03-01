@@ -1,0 +1,6 @@
+---
+# Secondary-specific BIND9 configuration
+bind9_role: secondary
+
+# Secondaries store transferred zones here
+bind9_zone_dir: /var/cache/bind

@@ -1,0 +1,9 @@
+// {{ ansible_managed }}
+//
+// TSIG key for authenticating zone transfers between master and secondaries.
+// This shared secret ensures only authorized servers can request zone data.
+
+key "{{ tsig_key_name }}" {
+    algorithm {{ tsig_key_algorithm }};
+    secret "{{ tsig_key_secret }}";
+};

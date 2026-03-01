@@ -1,0 +1,136 @@
+---
+# =============================================================================
+# Domain & SOA Configuration
+# =============================================================================
+dns_domain: rushdel.me
+dns_admin_email: hello.rushdeliverymedia.me
+dns_ttl: "2d"
+dns_soa_refresh: "12h"
+dns_soa_retry: "15m"
+dns_soa_expire: "3w"
+dns_soa_minimum: "2h"
+
+# Virtual IP for HA DNS (floats between dns2 and dns3 via keepalived)
+dns_vip: 192.168.22.10
+
+# =============================================================================
+# Nameservers (NS records in all zones)
+# =============================================================================
+dns_nameservers:
+  - { name: ns1, ip: "192.168.22.21" } # dns1 - master
+  - { name: ns2, ip: "192.168.22.39" } # dns2 - backup-pi
+  - { name: ns3, ip: "192.168.22.9" } # dns3 - new LXC on mtb
+
+# Master server IP (used by secondaries for zone transfers)
+dns_master_ip: 192.168.22.21
+
+# =============================================================================
+# TSIG Key for Zone Transfers
+# =============================================================================
+tsig_key_name: "homelab-transfer-key"
+tsig_key_algorithm: "hmac-sha256"
+tsig_key_secret: "{{ vault_tsig_key_secret }}"
+
+# =============================================================================
+# DNS Forwarders (for resolving external domains)
+# =============================================================================
+dns_forwarders:
+  - 9.9.9.9
+  - 1.1.1.1
+
+# =============================================================================
+# ACL - Networks allowed to query this DNS server
+# =============================================================================
+dns_allowed_networks:
+  - 192.168.22.0/24
+  - 192.168.33.0/24
+  - 10.66.66.0/24
+  - 127.0.0.0/8
+
+# =============================================================================
+# Forward Zone: rushdel.me - A Records
+# =============================================================================
+dns_a_records:
+  - { name: aero, ip: "192.168.22.24", comment: "Aero (Proxmox)" }
+  - { name: ai, ip: "192.168.22.1" }
+  - { name: ansible, ip: "192.168.22.20", comment: "Ansible Controller" }
+  - { name: ap, ip: "192.168.22.4" }
+  - { name: backup-pi, ip: "192.168.22.39", comment: "Emergency Pi with NUT" }
+  - { name: cargo, ip: "192.168.22.25", comment: "Cargo Truenas" }
+  - { name: dns1, ip: "192.168.22.21" }
+  - { name: dns2, ip: "192.168.22.39" }
+  - { name: dns3, ip: "192.168.22.9" }
+  - { name: docker1, ip: "192.168.22.29", comment: "Docker 1 on Aero" }
+  - { name: docker2, ip: "192.168.22.30", comment: "Docker 2" }
+  - { name: docker3, ip: "192.168.22.45" }
+  - { name: external-backup, ip: "172.22.22.3", comment: "UNAS2 External" }
+  - { name: gitlab, ip: "192.168.22.28", comment: "Home Gitlab" }
+  - { name: ha-internal, ip: "192.168.33.3", comment: "Home Assistant" }
+  - { name: homeassistant, ip: "192.168.33.3", comment: "Home Assistant" }
+  - { name: influxdb, ip: "192.168.22.11", comment: "InfluxDB internal" }
+  - { name: ipmi-aero, ip: "192.168.22.26", comment: "Aero IPMI" }
+  - { name: ipmi-cargo, ip: "192.168.22.27", comment: "Cargo IPMI" }
+  - { name: ipmi-mtb, ip: "192.168.22.22", comment: "MS-01 IPMI" }
+  - { name: kasm, ip: "10.66.66.2", comment: "Kasm Server" }
+  - { name: monitor, ip: "192.168.22.32" }
+  - { name: mtb, ip: "192.168.22.8", comment: "MS-01 Proxmox Server" }
+  - { name: nas, ip: "192.168.22.5", comment: "NAS (Bikeshed)" }
+  - { name: netbox, ip: "192.168.22.37", comment: "Netbox install for Home" }
+  - { name: pbs, ip: "192.168.22.31", comment: "Proxmox Backup Server" }
+  - { name: pdm, ip: "192.168.22.47" }
+  - { name: pfsensehome, ip: "192.168.22.1", comment: "PfSense" }
+  - { name: pgadmin, ip: "192.168.22.30" }
+  - { name: postgresdb, ip: "192.168.22.41", comment: "Home Postgres DB" }
+  - { name: speedtest, ip: "192.168.22.38", comment: "OpenSpeedTest" }
+  - { name: switch48, ip: "192.168.22.3", comment: "Main Switch 48 port" }
+  - {
+      name: truenas-mom,
+      ip: "100.111.125.38",
+      comment: "TrueNAS Mom over Tailscale",
+    }
+  - { name: truenas-office, ip: "100.100.63.81", comment: "Truenas Office" }
+  - { name: unifi, ip: "192.168.22.2", comment: "Unifi Controller" }
+  - { name: vault, ip: "192.168.22.44", comment: "Hashicorp vault" }
+  - { name: wazuh, ip: "192.168.22.46" }
+  - { name: wiki, ip: "192.168.22.18", comment: "Home Wiki" }
+  - { name: zabbix, ip: "192.168.22.42" }
+  - { name: zerobyte, ip: "192.168.22.49", comment: "Zerobyte VM" }
+
+# =============================================================================
+# Forward Zone: rushdel.me - CNAME Records
+# =============================================================================
+dns_cname_records:
+  - { name: traefik-dashboard, target: "docker1", comment: "Traefik" }
+  - { name: solidtime, target: "docker1", comment: "SolidTime" }
+  - { name: homarr, target: "docker1", comment: "Homarr" }
+  - { name: n8n, target: "docker2" }
+  - { name: food, target: "docker2", comment: "Mealie Container" }
+  - { name: nginx-demo-1, target: "docker3" }
+  - { name: nocodb, target: "docker3", comment: "Test NocoDB" }
+  - { name: grafana, target: "monitor", comment: "Home Grafana" }
+  - { name: prometheus, target: "monitor", comment: "Prometheus" }
+  - { name: bikeshed, target: "nas" }
+
+# =============================================================================
+# Subzone: home.rushdel.me - CNAME Records
+# =============================================================================
+dns_home_cname_records:
+  - { name: freshrss, target: "docker2.rushdel.me.", comment: "Fresh RSS" }
+  - { name: docs, target: "docker2.rushdel.me.", comment: "Paperless NGx" }
+  - { name: uptime, target: "monitor.rushdel.me.", comment: "Uptime Kuma" }
+
+# =============================================================================
+# Subzone: gitlab.rushdel.me - A Record (apex)
+# =============================================================================
+dns_gitlab_a_ip: "192.168.22.28"
+
+# =============================================================================
+# Subzone: gitlab.rushdel.me - CNAME Records
+# =============================================================================
+dns_gitlab_cname_records:
+  - { name: registry, target: "gitlab.rushdel.me.", comment: "Docker Registry" }
+
+# =============================================================================
+# Keepalived Configuration
+# =============================================================================
+keepalived_vrrp_password: "{{ vault_keepalived_password }}"

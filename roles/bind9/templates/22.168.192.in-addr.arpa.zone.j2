@@ -1,0 +1,34 @@
+; {{ ansible_managed }}
+;
+; Reverse DNS zone for 192.168.22.0/24
+; Maps IP addresses back to hostnames (PTR records).
+; Auto-generated from dns_a_records - only includes IPs in the 192.168.22.x range.
+
+$TTL {{ dns_ttl }}
+
+$ORIGIN 22.168.192.in-addr.arpa.
+
+@               IN      SOA     ns1.rushdel.me.  {{ dns_admin_email }}. (
+                                {{ ansible_facts['date_time']['year'] }}{{ ansible_facts['date_time']['month'] }}{{ ansible_facts['date_time']['day'] }}{{ ansible_facts['date_time']['hour'] }}   ; serial (YYYYMMDDhh)
+                                {{ dns_soa_refresh }}             ; refresh
+                                {{ dns_soa_retry }}             ; retry
+                                {{ dns_soa_expire }}              ; expire
+                                {{ dns_soa_minimum }}              ; minimum TTL
+                                )
+
+; --- Nameserver records ---
+{% for ns in dns_nameservers %}
+                IN      NS      {{ ns.name }}.rushdel.me.
+{% endfor %}
+
+; --- PTR records (auto-generated from A records in 192.168.22.0/24) ---
+{% for record in dns_a_records %}
+{% if record.ip.startswith('192.168.22.') %}
+{% set last_octet = record.ip.split('.')[-1] %}
+{% if record.comment is defined %}
+{{ "%-20s" | format(last_octet) }}IN      PTR     {{ record.name }}.rushdel.me.    ; {{ record.comment }}
+{% else %}
+{{ "%-20s" | format(last_octet) }}IN      PTR     {{ record.name }}.rushdel.me.
+{% endif %}
+{% endif %}
+{% endfor %}
