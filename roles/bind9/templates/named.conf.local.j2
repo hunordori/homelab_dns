@@ -12,9 +12,10 @@ include "/etc/bind/tsig-key.conf";
 // Zones are served from local zone files. Secondaries pull via AXFR/IXFR.
 // =============================================================================
 
-zone "rushdel.me" {
+{% for zone_name, zone_config in dns_zones.items() %}
+zone "{{ zone_name }}" {
     type master;
-    file "{{ bind9_zone_dir }}/rushdel.me.zone";
+    file "{{ bind9_zone_dir }}/{{ zone_name }}.zone";
     allow-transfer { key {{ tsig_key_name }}; };
     also-notify {
 {% for ns in dns_nameservers %}
@@ -25,45 +26,7 @@ zone "rushdel.me" {
     };
 };
 
-zone "home.rushdel.me" {
-    type master;
-    file "{{ bind9_zone_dir }}/home.rushdel.me.zone";
-    allow-transfer { key {{ tsig_key_name }}; };
-    also-notify {
-{% for ns in dns_nameservers %}
-{% if ns.ip != dns_master_ip %}
-        {{ ns.ip }};
-{% endif %}
 {% endfor %}
-    };
-};
-
-zone "gitlab.rushdel.me" {
-    type master;
-    file "{{ bind9_zone_dir }}/gitlab.rushdel.me.zone";
-    allow-transfer { key {{ tsig_key_name }}; };
-    also-notify {
-{% for ns in dns_nameservers %}
-{% if ns.ip != dns_master_ip %}
-        {{ ns.ip }};
-{% endif %}
-{% endfor %}
-    };
-};
-
-zone "22.168.192.in-addr.arpa" {
-    type master;
-    file "{{ bind9_zone_dir }}/22.168.192.in-addr.arpa.zone";
-    allow-transfer { key {{ tsig_key_name }}; };
-    also-notify {
-{% for ns in dns_nameservers %}
-{% if ns.ip != dns_master_ip %}
-        {{ ns.ip }};
-{% endif %}
-{% endfor %}
-    };
-};
-
 {% elif bind9_role == "secondary" %}
 // =============================================================================
 // SECONDARY configuration
@@ -75,28 +38,12 @@ server {{ dns_master_ip }} {
     keys { {{ tsig_key_name }}; };
 };
 
-zone "rushdel.me" {
+{% for zone_name, zone_config in dns_zones.items() %}
+zone "{{ zone_name }}" {
     type slave;
-    file "{{ bind9_zone_dir }}/rushdel.me.zone";
+    file "{{ bind9_zone_dir }}/{{ zone_name }}.zone";
     masters { {{ dns_master_ip }}; };
 };
 
-zone "home.rushdel.me" {
-    type slave;
-    file "{{ bind9_zone_dir }}/home.rushdel.me.zone";
-    masters { {{ dns_master_ip }}; };
-};
-
-zone "gitlab.rushdel.me" {
-    type slave;
-    file "{{ bind9_zone_dir }}/gitlab.rushdel.me.zone";
-    masters { {{ dns_master_ip }}; };
-};
-
-zone "22.168.192.in-addr.arpa" {
-    type slave;
-    file "{{ bind9_zone_dir }}/22.168.192.in-addr.arpa.zone";
-    masters { {{ dns_master_ip }}; };
-};
-
+{% endfor %}
 {% endif %}

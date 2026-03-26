@@ -9,6 +9,17 @@ acl "trusted" {
 {% endfor %}
 };
 
+{% if doh_enabled | default(false) %}
+tls local-tls {
+    cert-file "{{ doh_tls_cert_file }}";
+    key-file "{{ doh_tls_key_file }}";
+};
+
+http local-http {
+    endpoints { "/dns-query"; };
+};
+
+{% endif %}
 options {
     directory "/var/cache/bind";
 
@@ -34,6 +45,14 @@ options {
     listen-on { any; };
     listen-on-v6 { none; };
 
+{% if doh_enabled | default(false) %}
+    // DNS-over-HTTPS (DoH) on port {{ doh_port }}
+    listen-on port {{ doh_port }} tls local-tls http local-http { any; };
+
+    // DNS-over-TLS (DoT) on port {{ dot_port }}
+    listen-on port {{ dot_port }} tls local-tls { any; };
+{% endif %}
+
     // Disable zone transfer by default (overridden per-zone)
     allow-transfer { none; };
 
@@ -41,6 +60,13 @@ options {
     version "not disclosed";
 };
 
+{% if bind9_stats_enabled | default(false) %}
+// Statistics channel for bind_exporter (Prometheus monitoring)
+statistics-channels {
+    inet 127.0.0.1 port {{ bind9_stats_port }} allow { 127.0.0.1; };
+};
+
+{% endif %}
 // Logging configuration
 logging {
     channel default_log {

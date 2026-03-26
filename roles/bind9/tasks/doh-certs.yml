@@ -1,0 +1,98 @@
+---
+# TLS certificate management for DNS-over-HTTPS / DNS-over-TLS
+# Uses Let's Encrypt with Cloudflare DNS-01 challenge
+
+- name: Install certbot and Cloudflare DNS plugin
+  apt:
+    name:
+      - certbot
+      - python3-certbot-dns-cloudflare
+    state: present
+    update_cache: yes
+
+- name: Create Cloudflare credentials file for certbot
+  copy:
+    dest: /etc/letsencrypt/cloudflare.ini
+    content: |
+      dns_cloudflare_api_token = {{ cloudflare_api_token }}
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Obtain TLS certificate from Let's Encrypt
+  command: >
+    certbot certonly
+    --dns-cloudflare
+    --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini
+    --dns-cloudflare-propagation-seconds 60
+    --domain {{ inventory_hostname }}.{{ dns_domain }}
+    --domain {{ doh_hostname }}
+    --cert-name {{ inventory_hostname }}.{{ dns_domain }}
+    --non-interactive
+    --agree-tos
+    --email {{ dns_admin_email | replace('.', '@', 1) }}
+  args:
+    creates: "{{ doh_tls_cert_file }}"
+  throttle: 1
+
+- name: Allow bind group to traverse Let's Encrypt directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /etc/letsencrypt/live
+    - /etc/letsencrypt/archive
+
+- name: Allow bind group to read private keys
+  file:
+    path: "/etc/letsencrypt/archive/{{ inventory_hostname }}.{{ dns_domain }}"
+    state: directory
+    owner: root
+    group: bind
+    mode: "0750"
+
+- name: Find private key files in Let's Encrypt archive
+  find:
+    paths: "/etc/letsencrypt/archive/{{ inventory_hostname }}.{{ dns_domain }}"
+    patterns: "privkey*.pem"
+  register: letsencrypt_privkeys
+
+- name: Make private key files readable by bind group
+  file:
+    path: "{{ item.path }}"
+    owner: root
+    group: bind
+    mode: "0640"
+  loop: "{{ letsencrypt_privkeys.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Allow named to read Let's Encrypt certs in AppArmor
+  copy:
+    dest: /etc/apparmor.d/local/usr.sbin.named
+    content: |
+      /etc/letsencrypt/live/** r,
+      /etc/letsencrypt/archive/** r,
+    owner: root
+    group: root
+    mode: "0644"
+  register: apparmor_named_local
+
+- name: Reload AppArmor named profile
+  command: apparmor_parser -r /etc/apparmor.d/usr.sbin.named
+  changed_when: false
+
+- name: Deploy certbot renewal hook to restart BIND9
+  copy:
+    dest: /etc/letsencrypt/renewal-hooks/deploy/bind9-restart.sh
+    content: |
+      #!/bin/bash
+      # Fix private key permissions so BIND9 can read it
+      chown root:bind "${RENEWED_LINEAGE}/privkey.pem"
+      chmod 0640 "${RENEWED_LINEAGE}/privkey.pem"
+      systemctl restart named
+    owner: root
+    group: root
+    mode: "0755"
+  notify: restart bind9

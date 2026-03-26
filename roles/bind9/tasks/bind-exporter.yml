@@ -1,0 +1,89 @@
+---
+- name: Create bind_exporter group
+  group:
+    name: "{{ bind_exporter_group }}"
+    system: yes
+    state: present
+
+- name: Create bind_exporter user
+  user:
+    name: "{{ bind_exporter_user }}"
+    group: "{{ bind_exporter_group }}"
+    shell: /usr/sbin/nologin
+    system: yes
+    create_home: no
+    state: present
+
+- name: Detect architecture
+  set_fact:
+    bind_exporter_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
+- name: Check if bind_exporter is already installed
+  stat:
+    path: /usr/local/bin/bind_exporter
+  register: bind_exporter_binary
+
+- name: Check installed bind_exporter version
+  command: /usr/local/bin/bind_exporter --version
+  register: bind_exporter_installed_version
+  changed_when: false
+  failed_when: false
+  when: bind_exporter_binary.stat.exists
+
+- name: Set whether bind_exporter needs install/upgrade
+  set_fact:
+    bind_exporter_needs_install: >-
+      {{ not bind_exporter_binary.stat.exists or
+         (bind_exporter_installed_version.stderr is defined and
+          bind_exporter_version not in (bind_exporter_installed_version.stderr | default(''))) }}
+
+- name: Download bind_exporter tarball
+  get_url:
+    url: "https://github.com/prometheus-community/bind_exporter/releases/download/v{{ bind_exporter_version }}/bind_exporter-{{ bind_exporter_version }}.linux-{{ bind_exporter_arch }}.tar.gz"
+    dest: "/tmp/bind_exporter-{{ bind_exporter_version }}.linux-{{ bind_exporter_arch }}.tar.gz"
+    mode: "0644"
+  when: bind_exporter_needs_install | bool
+  register: bind_exporter_download
+
+- name: Extract bind_exporter tarball
+  unarchive:
+    src: "/tmp/bind_exporter-{{ bind_exporter_version }}.linux-{{ bind_exporter_arch }}.tar.gz"
+    dest: /tmp
+    remote_src: yes
+  when: bind_exporter_needs_install | bool and bind_exporter_download is not skipped and not ansible_check_mode
+
+- name: Install bind_exporter binary
+  copy:
+    src: "/tmp/bind_exporter-{{ bind_exporter_version }}.linux-{{ bind_exporter_arch }}/bind_exporter"
+    dest: /usr/local/bin/bind_exporter
+    owner: root
+    group: root
+    mode: "0755"
+    remote_src: yes
+  when: bind_exporter_needs_install | bool and bind_exporter_download is not skipped and not ansible_check_mode
+  notify: restart bind_exporter
+
+- name: Clean up downloaded artifacts
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "/tmp/bind_exporter-{{ bind_exporter_version }}.linux-{{ bind_exporter_arch }}.tar.gz"
+    - "/tmp/bind_exporter-{{ bind_exporter_version }}.linux-{{ bind_exporter_arch }}"
+  when: bind_exporter_needs_install | bool and bind_exporter_download is not skipped and not ansible_check_mode
+
+- name: Deploy bind_exporter systemd unit
+  template:
+    src: bind_exporter.service.j2
+    dest: /etc/systemd/system/bind_exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart bind_exporter
+
+- name: Ensure bind_exporter is enabled and started
+  systemd:
+    name: bind_exporter
+    state: started
+    enabled: yes
+    daemon_reload: yes

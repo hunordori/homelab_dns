@@ -9,7 +9,7 @@
 #   2. Deploys keepalived on dns2 and dns3 for VIP failover
 #
 # After running, verify with:
-#   dig @192.168.22.10 docker1.rushdel.me
+#   dig @192.168.X.10 docker1.example.com
 
 - name: Deploy BIND9 on all DNS servers
   hosts: dns_servers

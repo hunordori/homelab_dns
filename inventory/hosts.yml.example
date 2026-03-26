@@ -3,13 +3,13 @@ all:
     dns_master:
       hosts:
         dns1:
-          ansible_host: 192.168.22.21
+          ansible_host: 192.168.X.21
     dns_secondary:
       hosts:
         dns2:
-          ansible_host: 192.168.22.39
+          ansible_host: 192.168.X.39
         dns3:
-          ansible_host: 192.168.22.9
+          ansible_host: 192.168.X.9
     dns_servers:
       children:
         dns_master:

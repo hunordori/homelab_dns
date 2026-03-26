@@ -1,0 +1,103 @@
+---
+# =============================================================================
+# Domain & SOA Configuration
+# =============================================================================
+dns_domain: example.com
+dns_admin_email: youremail@example.com
+dns_ttl: "2d"
+dns_soa_refresh: "12h"
+dns_soa_retry: "15m"
+dns_soa_expire: "3w"
+dns_soa_minimum: "2h"
+
+# Virtual IP for HA DNS (floats between dns2 and dns3 via keepalived)
+dns_vip: [virtualIPAddress]
+
+# =============================================================================
+# Nameservers (NS records in all zones)
+# =============================================================================
+dns_nameservers:
+  - { name: ns1, ip: "IPAddress_dns1" } # dns1 - master
+  - { name: ns2, ip: "IPAddress_dns2" } # dns2
+  - { name: ns3, ip: "IPAddress_dns3" } # dns3
+
+# Master server IP (used by secondaries for zone transfers)
+dns_master_ip: IPAddress_master # IPAddress_dns1
+
+# =============================================================================
+# TSIG Key for Zone Transfers
+# =============================================================================
+tsig_key_name: "homelab-transfer-key"
+tsig_key_algorithm: "hmac-sha256"
+tsig_key_secret: "{{ vault_tsig_key_secret }}"
+
+# =============================================================================
+# DNS Forwarders (for resolving external domains)
+# =============================================================================
+dns_forwarders:
+  - 9.9.9.9
+  - 1.1.1.1
+
+# =============================================================================
+# ACL - Networks allowed to query this DNS server
+# =============================================================================
+dns_allowed_networks:
+  - 192.168.x.0/24
+  - 192.168.y.0/24
+  - 127.0.0.0/8
+
+# =============================================================================
+# DNS Zones
+# =============================================================================
+dns_zones:
+  example.com:
+    type: master
+    delegations:
+      - home
+    a_records:
+      - { name: service_name1, ip: "IPAddress_service1", comment: "Service 1" }
+      - { name: service_name2, ip: "IPAddress_service2" }
+      - { name: service_name3, ip: "IPAddress_service3", comment: "Service 3" }
+    cname_records:
+      - { name: traefik, target: "service_name1", comment: "Traefik" }
+      - { name: solidtime, target: "service_name1", comment: "SolidTime" }
+
+  home.example.com:
+    type: delegated
+    cname_records:
+      - { name: freshrss, target: "docker2.example.com.", comment: "Fresh RSS" }
+      - { name: docs, target: "docker2.example.com.", comment: "Paperless NGx" }
+      - { name: uptime, target: "monitor.example.com.", comment: "Uptime Kuma" }
+
+  22.168.192.in-addr.arpa:
+    type: reverse
+    reverse_source: example.com
+    reverse_network: "192.168.22"
+
+# =============================================================================
+# DNS-over-HTTPS (DoH) & DNS-over-TLS (DoT) Configuration
+# =============================================================================
+doh_enabled: true
+doh_port: 443
+dot_port: 853
+doh_hostname: "doh.example.com"
+doh_tls_cert_dir: "/etc/letsencrypt/live/{{ inventory_hostname }}.{{ dns_domain }}"
+doh_tls_cert_file: "{{ doh_tls_cert_dir }}/fullchain.pem"
+doh_tls_key_file: "{{ doh_tls_cert_dir }}/privkey.pem"
+cloudflare_api_token: "{{ vault_cloudflare_api_token }}"
+
+# =============================================================================
+# BIND9 Statistics & Monitoring (bind_exporter for Prometheus)
+# =============================================================================
+bind9_stats_enabled: true
+bind9_stats_port: 8053
+bind_exporter_version: "0.8.0"
+bind_exporter_listen_port: 9119
+bind_exporter_listen_address: "0.0.0.0"
+bind_exporter_user: "bind_exporter"
+bind_exporter_group: "bind_exporter"
+
+# =============================================================================
+# Keepalived Configuration
+# =============================================================================
+keepalived_vrrp_password: "{{ vault_keepalived_password }}"

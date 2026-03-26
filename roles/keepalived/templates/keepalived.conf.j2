@@ -12,7 +12,7 @@
 ! Health check: uses dig to query the local BIND9 for the SOA record.
 ! If this fails 3 times in a row, the server is considered unhealthy.
 vrrp_script check_named {
-    script "/usr/bin/dig @127.0.0.1 rushdel.me SOA +time=2 +tries=1 > /dev/null 2>&1"
+    script "/usr/bin/dig @127.0.0.1 {{ dns_domain }} SOA +time=2 +tries=1 > /dev/null 2>&1"
     interval 5
     weight -20
     fall 3

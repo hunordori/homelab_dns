@@ -7,24 +7,24 @@
 ```
                   +-----------------+
                   |  dns1 (master)  |
-                  |  192.168.22.21  |
+                  |  192.168.X.21   |
                   +--------+--------+
                            |
               zone transfers (TSIG)
                      |           |
           +----------+--+   +---+-----------+
           | dns2 (sec.) |   | dns3 (sec.)   |
-          | 192.168.22.39|   | 192.168.22.9 |
+          | 192.168.X.39|   | 192.168.X.9   |
           +------+------+   +------+--------+
                  |                  |
                  +--- keepalived ---+
-                     VIP: 192.168.22.10
+                     VIP: 192.168.X.10
 ```
 
 - **dns1** — Master BIND9 server. Holds authoritative zone files.
 - **dns2** — Secondary + keepalived BACKUP (priority 90)
 - **dns3** — Secondary + keepalived MASTER (priority 100)
-- **VIP 192.168.22.10** — Floating IP managed by keepalived. Clients should use this as their DNS resolver.
+- **VIP 192.168.X.10** — Floating IP managed by keepalived. Clients should use this as their DNS resolver.
 
 Zone transfers from master to secondaries are authenticated with a TSIG key. Keepalived monitors BIND9 health with `dig` checks every 5 seconds.
 
@@ -32,10 +32,10 @@ Zone transfers from master to secondaries are authenticated with a TSIG key. Kee
 
 | Zone | Type |
 |------|------|
-| `rushdel.me` | Forward (A + CNAME records) |
-| `home.rushdel.me` | Forward subzone (CNAME records) |
-| `gitlab.rushdel.me` | Forward subzone (CNAME records) |
-| `22.168.192.in-addr.arpa` | Reverse (auto-generated PTR records) |
+| `example.com` | Forward (A + CNAME records) |
+| `home.example.com` | Forward subzone (CNAME records) |
+| `gitlab.example.com` | Forward subzone (CNAME records) |
+| `X.168.192.in-addr.arpa` | Reverse (auto-generated PTR records) |
 
 ## Prerequisites
 
@@ -88,7 +88,7 @@ Zone transfers from master to secondaries are authenticated with a TSIG key. Kee
 
 4. Verify:
    ```bash
-   dig @192.168.22.10 docker1.rushdel.me
+   dig @192.168.X.10 docker1.example.com
    ```
 
 ## Managing DNS Records
@@ -101,7 +101,7 @@ All DNS records live in `inventory/group_vars/all/vars.yml`.
 
    **A records** (`dns_a_records`):
    ```yaml
-   - { name: myhost, ip: "192.168.22.50", comment: "My new server" }
+   - { name: myhost, ip: "192.168.X.50", comment: "My new server" }
    ```
 
    **CNAME records** (`dns_cname_records`):
@@ -112,7 +112,7 @@ All DNS records live in `inventory/group_vars/all/vars.yml`.
    **Subzone CNAMEs** — use `dns_home_cname_records` or `dns_gitlab_cname_records`:
    ```yaml
    # home.rushdel.me subzone
-   - { name: myservice, target: "docker2.rushdel.me.", comment: "My service" }
+   - { name: myservice, target: "docker2.example.com.", comment: "My service" }
    ```
    Note: subzone targets must be FQDNs (ending with a dot).
 

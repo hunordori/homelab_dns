@@ -1,0 +1,21 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Prometheus BIND9 Exporter
+After=network-online.target named.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ bind_exporter_user }}
+Group={{ bind_exporter_group }}
+ExecStart=/usr/local/bin/bind_exporter \
+  --bind.stats-url=http://localhost:{{ bind9_stats_port }}/ \
+  --web.listen-address={{ bind_exporter_listen_address }}:{{ bind_exporter_listen_port }}
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

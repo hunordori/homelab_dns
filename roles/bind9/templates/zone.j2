@@ -1,0 +1,86 @@
+; {{ ansible_managed }}
+;
+; Zone file for {{ item.key }}
+
+$TTL {{ dns_ttl }}
+
+$ORIGIN {{ item.key }}.
+
+@               IN      SOA     ns1.{{ dns_domain }}.  {{ dns_admin_email }}. (
+                                {{ ansible_facts['date_time']['year'] }}{{ ansible_facts['date_time']['month'] }}{{ ansible_facts['date_time']['day'] }}{{ ansible_facts['date_time']['hour'] }}   ; serial (YYYYMMDDhh)
+                                {{ dns_soa_refresh }}             ; refresh
+                                {{ dns_soa_retry }}             ; retry
+                                {{ dns_soa_expire }}              ; expire
+                                {{ dns_soa_minimum }}              ; minimum TTL
+                                )
+
+; --- Nameserver records ---
+{% for ns in dns_nameservers %}
+                IN      NS      {{ ns.name }}.{{ dns_domain }}.
+{% endfor %}
+{% if item.value.type == 'master' %}
+
+; --- Nameserver A records (glue) ---
+{% for ns in dns_nameservers %}
+{{ "%-30s" | format(ns.name) }}IN      A       {{ ns.ip }}
+{% endfor %}
+
+; --- VIP record (HA DNS entry point) ---
+{{ "%-30s" | format("dns") }}IN      A       {{ dns_vip }}
+{% if item.value.delegations is defined %}
+
+{% for sub in item.value.delegations %}
+; --- Subdomain delegation: {{ sub }}.{{ dns_domain }} ---
+{% for ns in dns_nameservers %}
+{{ "%-18s" | format(sub) }}IN      NS      {{ ns.name }}.{{ dns_domain }}.
+{% endfor %}
+
+{% endfor %}
+{% endif %}
+{% endif %}
+{% if item.value.a_ip is defined %}
+
+; --- A record for {{ item.key }} itself ---
+{{ "%-30s" | format("@") }}IN      A       {{ item.value.a_ip }}
+{% endif %}
+{% if item.value.a_records is defined %}
+
+; --- A records ---
+{% for record in item.value.a_records %}
+{% if record.comment is defined %}
+{{ "%-30s" | format(record.name) }}IN      A       {{ record.ip }}    ; {{ record.comment }}
+{% else %}
+{{ "%-30s" | format(record.name) }}IN      A       {{ record.ip }}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if item.value.cname_records is defined %}
+
+; --- CNAME records ---
+{% for record in item.value.cname_records %}
+{% if record.target.endswith('.') %}
+{% set target = record.target %}
+{% else %}
+{% set target = record.target ~ '.' ~ dns_domain ~ '.' %}
+{% endif %}
+{% if record.comment is defined %}
+{{ "%-30s" | format(record.name) }}IN      CNAME   {{ target }}    ; {{ record.comment }}
+{% else %}
+{{ "%-30s" | format(record.name) }}IN      CNAME   {{ target }}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if item.value.type == 'reverse' %}
+
+; --- PTR records (auto-generated from A records in {{ item.value.reverse_network }}.0/24) ---
+{% for record in dns_zones[item.value.reverse_source].a_records %}
+{% if record.ip.startswith(item.value.reverse_network ~ '.') %}
+{% set last_octet = record.ip.split('.')[-1] %}
+{% if record.comment is defined %}
+{{ "%-20s" | format(last_octet) }}IN      PTR     {{ record.name }}.{{ dns_domain }}.    ; {{ record.comment }}
+{% else %}
+{{ "%-20s" | format(last_octet) }}IN      PTR     {{ record.name }}.{{ dns_domain }}.
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}

@@ -8,6 +8,23 @@
     state: present
     update_cache: yes
 
+- name: Check BIND9 version for DoH/DoT support
+  command: named -v
+  register: named_version
+  changed_when: false
+  when: doh_enabled | default(false)
+
+- name: Assert BIND9 version is 9.18 or later
+  assert:
+    that:
+      - named_version.stdout | regex_search('BIND ([0-9]+\\.[0-9]+)', '\\1') | first | float >= 9.18
+    fail_msg: "BIND 9.18+ required for DoH/DoT. Found: {{ named_version.stdout }}"
+  when: doh_enabled | default(false) and named_version is not skipped
+
+- name: Set up TLS certificates for DoH/DoT
+  include_tasks: doh-certs.yml
+  when: doh_enabled | default(false)
+
 - name: Create BIND9 log directory
   file:
     path: /var/log/named
@@ -32,7 +49,7 @@
     owner: root
     group: bind
     mode: "0644"
-  notify: reload bind9
+  notify: restart bind9
 
 - name: Deploy TSIG key file
   template:
@@ -54,47 +71,17 @@
 
 # --- Master-only tasks: deploy zone files ---
 
-- name: Deploy rushdel.me zone file
+- name: Deploy zone files (master only)
   template:
-    src: rushdel.me.zone.j2
-    dest: "{{ bind9_zone_dir }}/rushdel.me.zone"
+    src: zone.j2
+    dest: "{{ bind9_zone_dir }}/{{ item.key }}.zone"
     owner: bind
     group: bind
     mode: "0644"
-    validate: "named-checkzone rushdel.me %s"
-  when: bind9_role == "master"
-  notify: reload bind9
-
-- name: Deploy home.rushdel.me zone file
-  template:
-    src: home.rushdel.me.zone.j2
-    dest: "{{ bind9_zone_dir }}/home.rushdel.me.zone"
-    owner: bind
-    group: bind
-    mode: "0644"
-    validate: "named-checkzone home.rushdel.me %s"
-  when: bind9_role == "master"
-  notify: reload bind9
-
-- name: Deploy gitlab.rushdel.me zone file
-  template:
-    src: gitlab.rushdel.me.zone.j2
-    dest: "{{ bind9_zone_dir }}/gitlab.rushdel.me.zone"
-    owner: bind
-    group: bind
-    mode: "0644"
-    validate: "named-checkzone gitlab.rushdel.me %s"
-  when: bind9_role == "master"
-  notify: reload bind9
-
-- name: Deploy reverse DNS zone file
-  template:
-    src: 22.168.192.in-addr.arpa.zone.j2
-    dest: "{{ bind9_zone_dir }}/22.168.192.in-addr.arpa.zone"
-    owner: bind
-    group: bind
-    mode: "0644"
-    validate: "named-checkzone 22.168.192.in-addr.arpa %s"
+    validate: "named-checkzone {{ item.key }} %s"
+  loop: "{{ dns_zones | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
   when: bind9_role == "master"
   notify: reload bind9
 
@@ -103,3 +90,7 @@
     name: named
     state: started
     enabled: yes
+
+- name: Deploy bind_exporter for Prometheus monitoring
+  include_tasks: bind-exporter.yml
+  when: bind9_stats_enabled | default(false)
